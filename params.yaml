@@ -1,0 +1,18 @@
+params:
+  pick_up_idx : [190,610,740,1058,1310]
+  avi_path : '/home/hazel/Downloads/2025_07_11_13_22_47_IntrinsicsMeasure/rgb.avi'  
+  frames_folder : 'data/extracted_frames/'  
+  corners_vis_folder : 'vis_data/corners/' 
+  corners_npy_folder : 'data/corners/' 
+  cam2depth_folder : 'data/cam2depth/'
+  camspace_folder : 'data/camera_space/'
+  color_intrinsics_file : 'data/color_intrinsics.csv'
+  visualized_depth_folder : 'vis_data/depth/'
+  visualized_depth_w_corners_folder: 'vis_data/depth_with_corners/'
+  depth2color_extrinsics_file: 'data/depth2color_extrinsics.npz'
+
+pipeline:
+  frame_extracting: False
+  corners_finding: False
+  cam2depth_calibration: True
+
