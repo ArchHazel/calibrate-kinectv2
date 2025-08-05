@@ -1,3 +1,7 @@
 data/
 vis_data/
 __pycache__/
+*.pth
+*.png
+*.log
+*/__pycache__/

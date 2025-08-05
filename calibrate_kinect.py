@@ -54,7 +54,7 @@ def get_manual_corners(image, num_points=10):
     # 转成你的格式 (N, 1, 2)
     return np.array(clicked_points, dtype=np.float32).reshape(-1, 1, 2)
 
-def extract_frames(avi_path:str, output_folder:str, frame_extracting:bool):
+def extract_rgb_frames(avi_path:str, output_folder:str, frame_extracting:bool):
     if not frame_extracting:
         print(f"{"Frame extracting is disabled.".ljust(40)} Skipping frame extraction.")
         return
@@ -139,6 +139,7 @@ def cam2depth_calibration(
     visualized_depth_w_corners_folder:str, 
     color_intrinsics_path: str,
     d2c_file:str,
+    frames_folder:str ,
     cam2depth_calibrating: bool):
     '''
     Calibrate the camera to depth mapping using the provided CSV files.
@@ -163,6 +164,11 @@ def cam2depth_calibration(
     # read color camera intrinsics, csv
     color_intrinsics_matrix = np.loadtxt(color_intrinsics_path, delimiter=',')
     intrinsics_matrix = color_intrinsics_matrix.reshape((3, 3)) 
+    # intrinsics_matrix [0, 0] = -intrinsics_matrix[0, 0] 
+    # intrinsics_matrix[0, 2] = 1920 - intrinsics_matrix[0, 2]  # Flip the x-axis
+    intrinsics_matrix[1, 1] = -intrinsics_matrix[1, 1]  # Flip the y-axis
+    intrinsics_matrix[1, 2] = 1080 - 1 - intrinsics_matrix[1, 2]  # Flip the y-axis
+
     print(f"Color camera intrinsics matrix:\n{intrinsics_matrix}")
 
     rot = []
@@ -170,6 +176,9 @@ def cam2depth_calibration(
     error = 1000
 
     for csv_file in tqdm.tqdm(c2d_csv_files, desc="color to depth mapping"):
+        if "740" not in csv_file:
+            continue
+
         pixel_coords = []
         cam_coords = []
 
@@ -184,6 +193,7 @@ def cam2depth_calibration(
         color_Y = data_c2d[:, 1]
         depth_X = data_c2d[:, 2]
         depth_Y = data_c2d[:, 3]
+        depth_V = data_c2d[:, 4]  # depth values, not used in calibration
         # build a dictionary to map color coordinates to depth coordinates, rounding to nearest integer
         color_to_depth_map = {}
 
@@ -191,10 +201,13 @@ def cam2depth_calibration(
         color_X = color_X[valid_mash]
         color_Y = color_Y[valid_mash]
         depth_X = depth_X[valid_mash]
-        depth_Y = depth_Y[valid_mash]   
+        depth_Y = depth_Y[valid_mash]  
+        depth_V = depth_V[valid_mash]  # depth values, not used in calibration 
+        
 
         color_coords = np.column_stack((color_X, color_Y)).astype(int)
         depth_coords = np.column_stack((depth_X + 0.5, depth_Y+ 0.5)).astype(int)
+
         color_to_depth_map = { tuple(color_coord): tuple(depth_coord) for color_coord, depth_coord in zip(color_coords, depth_coords) }
 
 
@@ -232,15 +245,15 @@ def cam2depth_calibration(
                 f.write(f"{point[0]} {point[1]} {point[2]}\n")
         
 
-        random_x = [619,850,1075,330,1390,1539] # pick up from color image
-        random_y = [872,884,813,765,775,764] # pick up from color image
+        random_x = [619,850,1075,330,1390,1539,1485,570,1456,1544,1235,424,455] # pick up from color image
+        random_y = [872,884,813,765,775,764,800,125,620,922,364,406,752] # pick up from color image
         random_points = np.column_stack((random_x, random_y)).astype(int)
 
 
 
         depth_img =  cv2.imread(os.path.join(visualized_depth_folder, f'depth_frame_{frame_idx:04d}.png'))
+        color_img = cv2.imread(os.path.join(frames_folder, f'frame_{frame_idx:04d}.png'))
 
-        # rounded_corners = get_manual_corners(depth_img, num_points=10)
 
         # find depth coordinates for corners
         corner_depth_coords = []
@@ -251,6 +264,7 @@ def cam2depth_calibration(
                 depth_coord = color_to_depth_map[key]
                 corner_depth_coords.append(depth_coord)
 
+
         
         
         for color_coord, depth_coord in zip(random_points, corner_depth_coords):
@@ -258,15 +272,23 @@ def cam2depth_calibration(
             depth_coord_tuple = (depth_coord[0], depth_coord[1])
             if depth_coord_tuple in depth2cam_space_map :
                 cam_space_coord = depth2cam_space_map[depth_coord_tuple]
+                # x -> -x y -> -y
+                # cam_space_coord = (cam_space_coord[0], -cam_space_coord[1], cam_space_coord[2])  # Flip x and y coordinates
 
-                pixel_coords.append(color_coord)
+                # print(f"Color coord: {color_coord}, Depth coord: {depth_coord}, Cam space coord: {cam_space_coord}")
+                pixel_coords.append(color_coord) # very important, since x: right to left, y: down to up
                 cam_coords.append(cam_space_coord)
                 
 
         # draw this corners on depth image
         for depth_coord in corner_depth_coords:
-            cv2.circle(depth_img, (depth_coord[0], depth_coord[1]), 1, (0, 0, 255), -1)
+            cv2.circle(depth_img, (depth_coord[0], depth_coord[1]), 5, (0, 0, 255), -1)
         cv2.imwrite(os.path.join(visualized_depth_w_corners_folder, f'depth_with_corners_{frame_idx:04d}.png'), depth_img)
+        # draw this corners on color image
+        for color_coord in random_points:
+            cv2.circle(color_img, (color_coord[0], color_coord[1]), 10, (0, 0, 255), -1)
+        cv2.imwrite(os.path.join(visualized_depth_w_corners_folder, f'color_with_corners_{frame_idx:04d}.png'), color_img)
+
 
         # do pnp calibration
         success, rvec, tvec = cv2.solvePnP(np.array(cam_coords).astype(float), np.array(pixel_coords).astype(float), intrinsics_matrix, None, flags=cv2.SOLVEPNP_ITERATIVE)
@@ -280,7 +302,21 @@ def cam2depth_calibration(
         else:
             print(f"Frame {frame_idx}: PnP calibration failed.")
 
-
+        # write projection by my self
+        world_coords = np.array(cam_coords).astype(float)
+        # apply the rotation and translation to the world coordinates
+        cam_space = np.dot(R, world_coords.T).T + tvec.reshape((1, 3))
+        # print("cam space coordinates", cam_space)
+        # divide by depth
+        cam_space = cam_space[:, :] / cam_space[:, 2][:, np.newaxis]  # Normalize by depth
+        # print("cam space coordinates", cam_space)
+        # apply K
+        cam_space = np.dot(intrinsics_matrix, cam_space.T).T  # Project to camera space
+        cam_space = cam_space[:, :2]  # Keep only x and y coordinates
+        print("world coordinates", world_coords )
+        print("cam space coordinates", cam_space)
+        
+        
         projected, _ = cv2.projectPoints(np.array(cam_coords).astype(float), rvec, tvec, intrinsics_matrix, None)
         error_curr = np.linalg.norm(pixel_coords - projected.squeeze(), axis=1).mean()
         if error_curr < error:
@@ -296,8 +332,8 @@ def cam2depth_calibration(
 
 if __name__ == "__main__":
 
-    extract_frames(avi_path, image_folder, frame_extracting)
-    color_intrisic_calibration(image_folder, output_folder, corner_npy_path, pick_up_idx, corners_finding)
+    extract_rgb_frames(avi_path, image_folder, frame_extracting)
+    color_intrisic_calibration(image_folder, output_folder, corner_npy_path, pick_up_idx,corners_finding)
     cam2depth_calibration(c2d_folder, 
     camspace_folder, 
     corner_npy_path, 
@@ -305,4 +341,5 @@ if __name__ == "__main__":
     visualized_depth_w_corners_folder,
     color_intrinsics_file, 
     depth2cam_extrinsics_file,
+    image_folder,
     cam2depth_calibrating)

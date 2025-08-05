@@ -2,9 +2,22 @@ import numpy as np
 import cv2
 import os
 from calibrate_kinect import pick_up_idx
-depth_folder = '/home/hazel/Downloads/2025_07_11_13_22_47_IntrinsicsMeasure/depth/'  
-output_folder = 'selected_depth_frames/'  # 输出深度帧的文件夹
-visualize_folder = 'visualize_depth_frames/'  # 可视化深度帧的文件夹
+import yaml
+
+
+
+
+with open("params.yaml", 'r') as stream:
+    try:
+        params = yaml.safe_load(stream)
+        parameters = params.get("params", {})
+        depth_folder = parameters.get("depth_folder", "")
+        output_folder = parameters.get("depth_frames_folder", "")
+        visualize_folder = parameters.get("visualized_estimated_depth_frames_folder", "")
+        depth_internal = parameters.get("depth_internal", 1440)
+    except yaml.YAMLError as exc:
+        print(exc)
+
 if not os.path.exists(output_folder):
     os.makedirs(output_folder)
 if not os.path.exists(visualize_folder):
@@ -13,13 +26,13 @@ if not os.path.exists(visualize_folder):
 # list all npy files in the folder
 depth_files = [f for f in os.listdir(depth_folder) if f.endswith('.npy')]
 depth_files.sort()  # Sort files to maintain order
-interval = 1440
+
 if __name__ == "__main__":
     files_id = []
     idxs = []
     for i in pick_up_idx:
-        idxs.append(i % interval)
-        file_id = i // interval
+        idxs.append(i % depth_internal)
+        file_id = i // depth_internal
         files_id.append(file_id)
     files_id = np.array(files_id)
     idxs = np.array(idxs)
@@ -43,8 +56,9 @@ if __name__ == "__main__":
         for selected_idx in selected_idxs:
             if selected_idx < depth_data.shape[0]:
                 depth_frame = depth_data[selected_idx]
-                print(depth_frame[0:10, 0:10])  # Print a small part of the depth frame for debugging
-                print("shape of depth frame:", depth_frame.shape)
+
+                print("max depth value:", np.max(depth_frame))
+                print("min depth value:", np.min(depth_frame))
                 # Save the depth frame as an image
                 output_filename = os.path.join(output_folder, f'depth_frame_{selected_idx:04d}.npy')
                 depth_frame.astype(np.uint16).tofile(f'{output_filename[:-4]}.bin')

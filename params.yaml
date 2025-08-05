@@ -1,18 +1,35 @@
 params:
   pick_up_idx : [190,610,740,1058,1310]
+  depth_internal: 1440
   avi_path : '/home/hazel/Downloads/2025_07_11_13_22_47_IntrinsicsMeasure/rgb.avi'  
-  frames_folder : 'data/extracted_frames/'  
-  corners_vis_folder : 'vis_data/corners/' 
+  depth_folder:  '/home/hazel/Downloads/2025_07_11_13_22_47_IntrinsicsMeasure/depth/'  
+  frames_folder : 'data/rgb/' 
+  depth_frames_folder : 'data/selected_depth_frames/' 
+  all_depth_frames_folder : 'data/depth_frames/' 
+  all_pred_depth_frames_folder : 'data/predicted_depth_frames/'
+  all_diff_depth_frames_folder : 'data/diff_depth_frames/'
+  corners_vis_folder : 'vis_data/chessboard_calibration/' 
   corners_npy_folder : 'data/corners/' 
+  visualized_estimated_depth_frames_folder : 'vis_data/estimated_depth_frames/'
   cam2depth_folder : 'data/cam2depth/'
   camspace_folder : 'data/camera_space/'
+  predicted_camspace_folder : 'data/predicted_camera_space/'
   color_intrinsics_file : 'data/color_intrinsics.csv'
+  depth_intrinsics_file : 'data/depth_intrinsics.csv'
   visualized_depth_folder : 'vis_data/depth/'
   visualized_depth_w_corners_folder: 'vis_data/depth_with_corners/'
   depth2color_extrinsics_file: 'data/depth2color_extrinsics.npz'
+  flashdepth_estimated_depth_npy_folder: '/home/hazel/FlashDepth/configs/flashdepth/output/rgb/depth_npy_files/'
+  depthpro_estimated_depth_npy_folder: '/home/hazel/depth2loc/estimated_depth/raw'
+  fixed_params_file: 'data/scaling_factors.npz'
+  gt_pred_diff_video: 'data/gt_pred_diff_video.avi'
+  pred_depth_rgb_view_folder: 'vis_data/pred_depth_rgb_view/'
 
 pipeline:
   frame_extracting: False
-  corners_finding: False
+  corners_finding: True  
   cam2depth_calibration: True
+
+models:
+  depth_estimator: 'depthpro' # flashdepth, depthpro
 
