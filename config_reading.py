@@ -1,10 +1,13 @@
 import yaml
 import os
 import cv2
+import argparse
 
-params_file = "params_HAR6.yaml"
+parser = argparse.ArgumentParser()
+parser.add_argument("--sensor_name", type=str, default="HAR6")
+args = parser.parse_args()
 
-with open(params_file, 'r') as stream:
+with open(f"configs/{args.sensor_name}.yaml", 'r') as stream:
     try:
         params = yaml.safe_load(stream)
         camera_number = params.get("camera_number", 0)

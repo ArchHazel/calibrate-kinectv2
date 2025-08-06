@@ -60,10 +60,7 @@ def read_color_intrinsics(file_path):
 
 
 
-def visualize_depth(depth_data, visualize_folder, idx,factor = 0.03):
-    os.makedirs(visualize_folder, exist_ok=True)
-    depth_data = cv2.applyColorMap(cv2.convertScaleAbs(depth_data, alpha=factor), cv2.COLORMAP_JET).astype(np.float32)
-    cv2.imwrite(os.path.join(visualize_folder, f'frame_{idx}.png'), depth_data)
+
 
 if __name__ == "__main__":
     from run_and_visualized_diff import read_estimated_depth, read_gt_depth

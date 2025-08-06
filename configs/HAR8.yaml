@@ -1,7 +1,6 @@
 camera_number : 8 (Bathroom)
 
 params:
-  
   pick_up_idx : [190,610,740,1058,1310]
 
   rgb_r_f_avi : '/home/hazel/Downloads/2025_08_06_11_51_03_kinect_calibration/rgb.avi'  
