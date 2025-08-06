@@ -6,49 +6,12 @@ import matplotlib.pyplot as plt
 from apply_RT import map_estimated_depth_to_gt, read_color_intrinsics,visualize_depth, create_point_cloud_from_rgbd_pair
 from matplotlib.colors import TwoSlopeNorm
 from tqdm import tqdm
-with open("params.yaml", 'r') as stream:
-    try:
-        params = yaml.safe_load(stream)
-        parameters = params.get("params", {})
-        models = params.get("models", {})
-        all_depth_frames_folder = parameters.get("all_depth_frames_folder", "data/depth_frames/")
-        all_pred_depth_frames_folder = parameters.get("all_pred_depth_frames_folder", "data/predicted_depth_frames/")
-        all_diff_depth_frames_folder = parameters.get("all_diff_depth_frames_folder", "data/diff_depth_frames/")
-        gt_depth_folder = parameters.get("depth_folder", "")
-        color_intrinsics_file = parameters.get("color_intrinsics_file", "camera_matrix.csv")
-        # estimated_depth_npy_folder = parameters.get("estimated_depth_npy_folder", "")
-        fixed_params_file = parameters.get("fixed_params_file", "data/scaling_factors.npz")
-        depth2cam_extrinsics_file = parameters.get("depth2color_extrinsics_file", "depth2cam_ext.npz")
-        depth_intrinsics_file = parameters.get("depth_intrinsics_file", "data/depth_intrinsics.csv")
-        depth_internal = parameters.get("depth_internal", 1440)
-        flashdepth_estimated_depth_npy_folder = parameters.get("flashdepth_estimated_depth_npy_folder", "")
-        depthpro_estimated_depth_npy_folder = parameters.get("depthpro_estimated_depth_npy_folder", "")
-        depth_estimator = models.get("depth_estimator", "")
-
-    except yaml.YAMLError as exc:
-        print(exc)
+from config_reading import *
 
 
-def read_gt_depth(gt_depth_folder, idx, depth_internal):
-    gt_idx = idx // depth_internal
-    gt_i = idx % depth_internal
-    gt_depth_file = os.path.join(gt_depth_folder, f"depth_{gt_idx+1}.npy")
-    gt_depth_data = np.load(gt_depth_file)
-    return gt_depth_data[gt_i]
 
-def read_estimated_depth(idx:int, estimated_depth_npy_folder:str) -> np.ndarray:
-    estimated_depth_file_name_no_zero_padding = os.path.join(estimated_depth_npy_folder, f"frame_{idx}.npy")
-    estimated_depth_file_name_with_zero_padding = os.path.join(estimated_depth_npy_folder, f"frame_{idx:04d}.npy")
 
-    if not os.path.exists(estimated_depth_file_name_no_zero_padding):
-        if not os.path.exists(estimated_depth_file_name_with_zero_padding):
-            raise FileNotFoundError(f"Estimated depth file {estimated_depth_file_name_no_zero_padding} does not exist.")
-        else:
-            estimated_depth_file = estimated_depth_file_name_with_zero_padding
-    else:
-        estimated_depth_file = estimated_depth_file_name_no_zero_padding
 
-    return np.load(estimated_depth_file)
 
 def depth_project_3d_to_2d(cam_space, depth_intrinsics, depth_internal, dimension):
     

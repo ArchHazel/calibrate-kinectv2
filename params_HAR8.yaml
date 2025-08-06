@@ -1,0 +1,43 @@
+camera_number : 8 (Bathroom)
+
+params:
+  
+  pick_up_idx : [190,610,740,1058,1310]
+
+  rgb_r_f_avi : '/home/hazel/Downloads/2025_08_06_11_51_03_kinect_calibration/rgb.avi'  
+  rgb_r_F_png : 'data/HAR8/rgb_raw_png/' 
+  
+  depth_interval: 1440
+  depth_r_F_each_npy_containing_1440_frames:  '/home/hazel/Downloads/2025_08_06_11_51_03_kinect_calibration/depth/' # modified 
+  depth_r_F_bin : 'data/HAR8/depth_raw_bin/' 
+  depth_rv_F : 'vis_data/HAR8/depth_raw_png/'
+  
+  
+  all_depth_frames_folder : 'data/HAR8/depth_frames/' 
+  all_pred_depth_frames_folder : 'data/HAR8/predicted_depth_frames/'
+  all_diff_depth_frames_folder : 'data/HAR8/diff_depth_frames/'
+  corners_vis_folder : 'vis_data/HAR8/chessboard_calibration/' 
+  corners_npy_folder : 'data/HAR8/corners/' 
+  visualized_estimated_depth_frames_folder : 'vis_data/HAR8/estimated_depth_frames/'
+  cam2depth_folder : 'data/HAR8/cam2depth/'
+  camspace_folder : 'data/HAR8/camera_space/'
+  predicted_camspace_folder : 'data/HAR8/predicted_camera_space/'
+  color_intrinsics_file : 'data/HAR8/color_intrinsics.csv'
+  depth_intrinsics_file : 'data/HAR8/depth_intrinsics.csv'
+  visualized_depth_folder : 'vis_data/HAR8/depth/'
+  visualized_depth_w_corners_folder: 'vis_data/HAR8/depth_with_corners/'
+  depth2color_extrinsics_file: 'data/HAR8/depth2color_extrinsics.npz'
+  flashdepth_estimated_depth_npy_folder: '/home/hazel/FlashDepth/configs/flashdepth/output/rgb/depth_npy_files/'
+  depthpro_estimated_depth_npy_folder: '/home/hazel/depth2loc/estimated_depth/raw'
+  fixed_params_file: 'data/HAR8/scaling_factors.npz'
+  gt_pred_diff_video: 'data/HAR8/gt_pred_diff_video.avi'
+  pred_depth_rgb_view_folder: 'vis_data/HAR8/pred_depth_rgb_view/'
+
+pipeline:
+  frame_extracting: False
+  corners_finding: True  
+  cam2depth_calibration: True
+
+models:
+  depth_estimator: 'depthpro' # flashdepth, depthpro
+

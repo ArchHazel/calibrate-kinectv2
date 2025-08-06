@@ -4,36 +4,11 @@ import cv2
 import yaml
 from matplotlib import pyplot as plt
 from tqdm import trange
+from config_reading import *
 
 
-with open("params.yaml", 'r') as stream:
-    try:
-        params = yaml.safe_load(stream)
-        parameters = params.get("params", {})
-        rescale_depth = params.get("rescale_depth", {})
-        color_intrinsics_file = parameters.get("color_intrinsics_file", "camera_matrix.csv")
-        gt_depth_folder = parameters.get("depth_folder", "")
-        depth2cam_extrinsics_file = parameters.get("depth2color_extrinsics_file", "depth2cam_ext.npz")
-        cam2depth_folder = parameters.get("cam2depth_folder", "")
-        predicted_camspace_folder = parameters.get("predicted_camspace_folder", "")
-        estimated_depth_npy_folder = parameters.get("estimated_depth_npy_folder", "")
-        models = params.get("models", {})
-        depthpro_estimated_depth_npy_folder = parameters.get("depthpro_estimated_depth_npy_folder", "")
-        flashdepth_estimated_depth_npy_folder = parameters.get("flashdepth_estimated_depth_npy_folder", "")
-        extracted_frame_idx = parameters.get("pick_up_idx", [])
-        fixed_params_file = parameters.get("fixed_params_file", "data/scaling_factors.npz")
-        # pred_depth_rgb_view_folder = parameters.get("pred_depth_rgb_view_folder", "")
-        visualize_folder = parameters.get("visualized_estimated_depth_frames_folder", "")
-        depth_estimator = models.get("depth_estimator", "")
-        depth_internal = parameters.get("depth_internal", 1440)
-        if depth_estimator == "depthpro":
-            estimated_depth_npy_folder = depthpro_estimated_depth_npy_folder
-        elif depth_estimator == "flashdepth":
-            estimated_depth_npy_folder = flashdepth_estimated_depth_npy_folder
-        else:
-            raise ValueError(f"Depth estimator {depth_estimator} not supported.")
-    except yaml.YAMLError as exc:
-        print(exc)
+
+
 
 
 def depth_to_np_arr(depth):
