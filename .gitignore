@@ -5,3 +5,5 @@ __pycache__/
 *.png
 *.log
 */__pycache__/
+*.zip
+client_secrets.json
