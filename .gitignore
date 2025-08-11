@@ -1,4 +1,5 @@
 data/
+!data/HAR6/scaling_factors.npz
 vis_data/
 __pycache__/
 *.pth
