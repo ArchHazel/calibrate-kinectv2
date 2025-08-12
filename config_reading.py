@@ -7,7 +7,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--sensor_name", type=str, default="HAR6")
 args = parser.parse_args()
 
-with open(f"configs/{args.sensor_name}.yaml", 'r') as stream:
+with open(f"calibrateKinectv2/configs/{args.sensor_name}.yaml", 'r') as stream:
     try:
         params = yaml.safe_load(stream)
         camera_number = params.get("camera_number", 0)

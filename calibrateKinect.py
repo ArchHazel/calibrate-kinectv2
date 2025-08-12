@@ -6,28 +6,9 @@ import os
 import yaml
 import tqdm
 
-with open("params.yaml", 'r') as stream:
-    try:
-        params = yaml.safe_load(stream)
-        parameters = params.get("params", {})
-        pipeline = params.get("pipeline", {})
-        avi_path = parameters.get("avi_path", "")
-        pick_up_idx = parameters.get("pick_up_idx", [])
-        image_folder = parameters.get("frames_folder", "")
-        output_folder = parameters.get("corners_vis_folder", "")
-        corner_npy_path = parameters.get("corners_npy_folder", "")
-        c2d_folder = parameters.get("cam2depth_folder", "")
-        camspace_folder = parameters.get("camspace_folder", "")
-        color_intrinsics_file = parameters.get("color_intrinsics_file", "camera_matrix.csv")
-        visualized_depth_folder = parameters.get("visualized_depth_folder", "vis_data/depth/")
-        visualized_depth_w_corners_folder = parameters.get("visualized_depth_w_corners_folder", "vis_data/depth_with_corners/")
-        depth2cam_extrinsics_file = parameters.get("depth2color_extrinsics_file", "depth2cam_ext.npz")
-        frame_extracting = pipeline.get("frame_extracting", False)
-        corners_finding = pipeline.get("corners_finding", False)
-        cam2depth_calibrating = pipeline.get("cam2depth_calibration", False)
+from calibrateKinectv2.config_reading import *
 
-    except yaml.YAMLError as exc:
-        print(exc)
+
 
 
 
@@ -56,26 +37,28 @@ def get_manual_corners(image, num_points=10):
 
 def extract_rgb_frames(avi_path:str, output_folder:str, frame_extracting:bool):
     if not frame_extracting:
-        print(f"{"Frame extracting is disabled.".ljust(40)} Skipping frame extraction.")
+        print(f"{'Frame extracting is disabled.'.ljust(40)} Skipping frame extraction.")
         return
 
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
-
+    
+    # cv video length
     cap = cv2.VideoCapture(avi_path)
-    frame_count = 0
-    # use tqdm to show progress
-    pbar = tqdm.tqdm(total=int(cap.get(cv2.CAP_PROP_FRAME_COUNT)), desc="Extracting frames")
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
-        pbar.update(1)
-        frame_filename = os.path.join(output_folder, f'frame_{frame_count:04d}.png')
-        cv2.imwrite(frame_filename, frame)
-        frame_count += 1
-    pbar.close()
-    cap.release()
+    frame_num = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    files_num = len(os.listdir(output_folder))
+    if frame_num == files_num:
+        print(f"{'Frame extraction is complete.'.ljust(40)}")
+        return
+
+    import subprocess
+    cmd = [
+        'ffmpeg',
+        '-i', avi_path,
+        os.path.join(output_folder, 'frame_%05d.png')
+    ]
+
+    subprocess.run(cmd, check=True) 
 
 def color_intrisic_calibration(image_folder:str, output_folder:str, corner_npy_path:str, pick_up_idx:list,  corners_finding:bool):
     if not corners_finding:
