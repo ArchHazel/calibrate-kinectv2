@@ -1,117 +1,111 @@
 import numpy as np
 import cv2
 import os
-import yaml
-import matplotlib.pyplot as plt
-from apply_RT import map_estimated_depth_to_gt, read_color_intrinsics,visualize_depth, create_point_cloud_from_rgbd_pair
-from matplotlib.colors import TwoSlopeNorm
 from tqdm import tqdm
-from config_reading import *
+import hydra
+from omegaconf import DictConfig
+from calibrateKinectv2.utils.depth_utils import *
+from calibrateKinectv2.utils.proj_utils import *
+from calibrateKinectv2.utils.io_utils import *
+from depth2loc.utils.basic_draw import stitch_three_images_side_by_side_and_save
 
 
 
+def apply_colormap_to_depth(depth_data, colormap = 'seismic', vmin=-0.5, vmax=0.5, sf_to_m = 1):
+    import matplotlib.pyplot as plt
+    from matplotlib.colors import TwoSlopeNorm
+
+    # colormap and normalization
+    if sf_to_m != 1:
+        depth_data = depth_data * sf_to_m
+    norm = TwoSlopeNorm(vmin=vmin, vcenter=0, vmax=vmax)
+    cmap = plt.colormaps.get_cmap(colormap).with_extremes(bad='gray')
+
+    depth_colored = cmap(norm(depth_data))
+    depth_colored = (depth_colored[:, :, :3] * 255).astype(np.uint8)  # Convert to uint8 RGB format
+    return depth_colored
+
+def draw_depth_difference_using_plt_colormap(diff_depth, output_folder, idx, sf_to_m = 1, debug=False):
+    if debug:
+        print("diff_depth min and max:", diff_depth.min(), diff_depth.max())
+    depth_colored = apply_colormap_to_depth(diff_depth, colormap='seismic', vmin=-0.5, vmax=0.5, sf_to_m=sf_to_m)
+    depth_colored = cv2.cvtColor(depth_colored, cv2.COLOR_RGB2BGR)  # Convert RGB to BGR for OpenCV
+    cv2.imwrite(os.path.join(output_folder, f'frame_{idx:05d}.png'), depth_colored)
+
+def draw_diff_one_from_kinect_one_from_estimation(gt_depth, estimated_depth, output_folder, idx):
+    valid_mask = (gt_depth > 0) & (estimated_depth > 0)
+    diff_depth = gt_depth - estimated_depth
+    diff_depth[~valid_mask] = np.nan  # Set invalid areas to NaN for visualization
+    draw_depth_difference_using_plt_colormap(diff_depth, output_folder, idx)
+
+def draw_diff_both_from_estimation(estimated_depth1, estimated_depth2, output_folder, idx,debug=False):
+    if debug:
+       print("estimated depth1 min and max:",estimated_depth1.min(), estimated_depth1.max())
+       print("estimated depth2 min and max:",estimated_depth2.min(), estimated_depth2.max())
+    valid_mask = (estimated_depth1 > 0) & (estimated_depth2 > 0)
+    diff_depth = estimated_depth1 - estimated_depth2
+    diff_depth[~valid_mask] = np.nan  # Set invalid areas to NaN for visualization
+    draw_depth_difference_using_plt_colormap(diff_depth, output_folder, idx)
+
+def get_depth_diff_npy_folder_wise(with_folder, without_folder, output_folder):
+    print(f"Comparing {with_folder} and {without_folder}, saving to {output_folder}")
+    os.makedirs(output_folder, exist_ok=True)
+    for idx in tqdm(from_depth_folder_to_frame_indices(with_folder)):
+        with_img = read_estimated_depth(idx, with_folder).astype(np.float32)
+        without_img = read_estimated_depth(idx, without_folder).astype(np.float32)
+        draw_diff_both_from_estimation(with_img, without_img, output_folder, idx)
+
+def get_depth_diff_png_folder_wise(gt_folder, estimated_folder, output_folder):
+    print(f"Comparing {gt_folder} and {estimated_folder}, saving to {output_folder}")
+    os.makedirs(output_folder, exist_ok=True)
+    for image_file in tqdm(os.listdir(gt_folder)):
+        gt_img = cv2.imread(os.path.join(gt_folder, image_file), cv2.IMREAD_UNCHANGED).astype(np.float32)
+        estimated_img = cv2.imread(os.path.join(estimated_folder, image_file), cv2.IMREAD_UNCHANGED).astype(np.float32)
+        draw_diff_one_from_kinect_one_from_estimation(gt_img, estimated_img, output_folder, int(image_file.split('_')[1].split('.')[0]))
 
 
 
-def depth_project_3d_to_2d(cam_space, depth_intrinsics, depth_internal, dimension):
+@hydra.main(config_path="/home/hhan2/Scripts/hof/", config_name="config",version_base=None)
+def main(cfg: DictConfig):
+    scaling_factors = np.load(cfg.dataset.paths.fixed_sf_to_metric_depth_file)
+    depth2cam_extrinsics = np.load(cfg.dataset.paths.depth2color_extrinsics_file)
+    color_intrinsics = read_color_intrinsics(cfg.dataset.paths.color_intrinsics_file)
+    depth_intrinsics = np.loadtxt(cfg.dataset.paths.depth_intrinsics_file, delimiter=',').reshape((3, 3))
+    estimated_depth_npy_folder = cfg.dataset.paths.depthpro_estimated_depth_npy_folder
+
+    gt_depth_data = read_gt_depth_given_frame_idx( 0,cfg.dataset.paths.depth_r_F_each_npy_containing_1440_frames, cfg.dataset.depth_interval)
     
-    estimated_depth = np.zeros((dimension["height"], dimension["width"]))
-
-    # divide by depth into unit coordinates
-    cam_space[:, 0] /= cam_space[:, 2]
-    cam_space[:, 1] /= cam_space[:, 2]
-
-    cam_space[:, 0] = (cam_space[:, 0] * depth_intrinsics[0, 0]) + depth_intrinsics[0, 2]
-    cam_space[:, 1] = (cam_space[:, 1] * depth_intrinsics[1, 1]) + depth_intrinsics[1, 2]
-
-    # assign depth values to the estimated depth array
-    for i in range(cam_space.shape[0]):
-        x, y = int(cam_space[i, 0]), int(cam_space[i, 1])
-        if 0 <= x < estimated_depth.shape[1] and 0 <= y < estimated_depth.shape[0]:
-            if estimated_depth[dimension["height"]-1-y, x] == 0:
-                estimated_depth[dimension["height"]-1-y, x] = cam_space[i, 2] * 1000
-            elif cam_space[i, 2] * 1000 < estimated_depth[dimension["height"]-1-y, x]:
-                estimated_depth[dimension["height"]-1-y, x] = cam_space[i, 2] * 1000
-    return estimated_depth
-
-
-
-        
-
-
-if __name__ == "__main__":
-    os.makedirs(all_depth_frames_folder, exist_ok=True)
-    os.makedirs(all_pred_depth_frames_folder, exist_ok=True)
-    os.makedirs(all_diff_depth_frames_folder, exist_ok=True)    
-
-
-    # Load necessary parameters
-    scaling_factors = np.load(fixed_params_file)
-    depth2cam_extrinsics = np.load(depth2cam_extrinsics_file)
-    color_intrinsics = read_color_intrinsics(color_intrinsics_file)
-    depth_intrinsics = np.loadtxt(depth_intrinsics_file, delimiter=',').reshape((3, 3))
-
-
-    # set up the estimated depth folder
-    if depth_estimator == "depthpro":
-        estimated_depth_npy_folder = depthpro_estimated_depth_npy_folder
-    elif depth_estimator == "flashdepth":  
-        estimated_depth_npy_folder = flashdepth_estimated_depth_npy_folder
-
     # process each frame index
-    for idx in tqdm(range(len(os.listdir(estimated_depth_npy_folder)))):
-        gt_depth_data = read_gt_depth(gt_depth_folder, idx, depth_internal).astype(np.float32)
-        visualize_depth(gt_depth_data, all_depth_frames_folder, idx)
+    for idx in tqdm(from_depth_folder_to_frame_indices(estimated_depth_npy_folder)):
+
         estimated_depth = read_estimated_depth(idx, estimated_depth_npy_folder)
-
-        
-
-        rescale_depth = map_estimated_depth_to_gt(estimated_depth, scaling_factors, depth_estimator)
-
-
-
-
+        rescale_depth = applied_sf_to_estimated_depth(estimated_depth, scaling_factors)
         cam_space = create_point_cloud_from_rgbd_pair(rescale_depth, color_intrinsics, depth2cam_extrinsics)
 
         estimated_depth = depth_project_3d_to_2d(
             cam_space, 
             depth_intrinsics, 
-            depth_internal, 
             {"height": gt_depth_data.shape[0], "width": gt_depth_data.shape[1]})
 
 
-        visualize_depth(estimated_depth, all_pred_depth_frames_folder, idx)
+        visualize_depth(estimated_depth, cfg.dataset.paths.derived_depth_png_folder, idx)
+    
 
-        # Calculate the difference
-        valid_mask = (gt_depth_data > 0) & (estimated_depth > 0)
-        diff_depth = gt_depth_data - estimated_depth
-        diff_depth[~valid_mask] = np.nan  # Set invalid areas to NaN for visualization
-
-        
-        
-
-        vmin, vmax = -500, 500
-        norm = TwoSlopeNorm(vmin=vmin, vcenter=0, vmax=vmax)
+@hydra.main(config_path="/home/hhan2/Scripts/hof/", config_name="config",version_base=None)
+def ad_hoc_test_depth_diff(cfg: DictConfig):
+    gt_folder = cfg.model.paths.depth_gt_with_human_F
+    derived_folder = cfg.dataset.paths.derived_depth_png_folder
+    diff_folder = cfg.dataset.paths.depthpro_diff_depth_png_folder
+    get_depth_diff_png_folder_wise(gt_folder, derived_folder, diff_folder)
+    stitch_three_images_side_by_side_and_save(gt_folder, derived_folder, diff_folder)
 
 
-        target_height_px = 424
-        dpi = 100  
-        height_inch = target_height_px / dpi
+if __name__ == "__main__":
+    main()
 
 
-        h, w = diff_depth.shape
-        aspect_ratio = w / h
-        width_inch = height_inch * aspect_ratio
-        fig = plt.figure(figsize=(width_inch, height_inch), dpi=dpi)
-        ax = fig.add_axes([0, 0, 1, 1])
 
-        cmap = plt.colormaps.get_cmap('seismic').with_extremes(bad='gray')
 
-        im = ax.imshow(diff_depth, cmap=cmap, norm=norm)
 
-        # fig.colorbar(im, ax=ax)
-        ax.set_title("")            # 清除标题（如果有的话）
-        ax.axis('off')              # 隐藏坐标轴（坐标刻度和边框）
 
-        plt.savefig(os.path.join(all_diff_depth_frames_folder, f'frame_{idx}.png'), pad_inches=0)
-        plt.close(fig)
+

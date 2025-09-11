@@ -1,18 +1,9 @@
 import cv2
 import numpy as np
-import glob
-import json
 import os
-import yaml
 import tqdm
 
-from calibrateKinectv2.config_reading import *
 
-
-
-
-
-clicked_points = []
 
 def click_event(event, x, y, flags, param):
     global clicked_points
@@ -20,26 +11,9 @@ def click_event(event, x, y, flags, param):
         clicked_points.append((x, y))
         print(f"Clicked point: ({x}, {y})")
 
-def get_manual_corners(image, num_points=10):
-    global clicked_points
-    clicked_points = []
 
-    cv2.imshow("Click 10 corners", image)
-    cv2.setMouseCallback("Click 10 corners", click_event)
 
-    print("Please click 10 corner points on the image...")
-    while len(clicked_points) < num_points:
-        cv2.waitKey(1)
-
-    cv2.destroyWindow("Click 10 corners")
-    # 转成你的格式 (N, 1, 2)
-    return np.array(clicked_points, dtype=np.float32).reshape(-1, 1, 2)
-
-def extract_rgb_frames(avi_path:str, output_folder:str, frame_extracting:bool):
-    if not frame_extracting:
-        print(f"{'Frame extracting is disabled.'.ljust(40)} Skipping frame extraction.")
-        return
-
+def extract_rgb_frames_smart_termination_if_not_done_before(avi_path:str, output_folder:str):
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
     
@@ -48,13 +22,19 @@ def extract_rgb_frames(avi_path:str, output_folder:str, frame_extracting:bool):
     frame_num = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     files_num = len(os.listdir(output_folder))
     if frame_num == files_num:
-        print(f"{'Frame extraction is complete.'.ljust(40)}")
+        print("frame amount:", frame_num)
+        print(f"{'Frame extraction has been done before.'.ljust(40)}")
         return
+    else:
+        print("frame amount:", frame_num)
+        print("extracted frames amount:", files_num)
+        print(f"{'Extracting frames from video.'.ljust(40)}")
 
     import subprocess
     cmd = [
         'ffmpeg',
         '-i', avi_path,
+        '-start_number', '0',
         os.path.join(output_folder, 'frame_%05d.png')
     ]
 
@@ -314,8 +294,8 @@ def cam2depth_calibration(
 
 
 if __name__ == "__main__":
+    only_extract = True
 
-    extract_rgb_frames(avi_path, image_folder, frame_extracting)
     color_intrisic_calibration(image_folder, output_folder, corner_npy_path, pick_up_idx,corners_finding)
     cam2depth_calibration(c2d_folder, 
     camspace_folder, 

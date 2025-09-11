@@ -13,7 +13,7 @@ params:
   
   
   all_depth_frames_folder : 'data/HAR4/depth_frames/' 
-  all_pred_depth_frames_folder : 'data/HAR4/predicted_depth_frames/'
+  derived_depth_png_folder : 'data/HAR4/predicted_depth_frames/'
   all_diff_depth_frames_folder : 'data/HAR4/diff_depth_frames/'
   corners_vis_folder : 'vis_data/HAR4/chessboard_calibration/' 
   corners_npy_folder : 'data/HAR4/corners/'   
@@ -28,7 +28,7 @@ params:
   depth2color_extrinsics_file: 'data/HAR4/depth2color_extrinsics.npz'
   flashdepth_estimated_depth_npy_folder: '/home/hazel/FlashDepth/configs/flashdepth/output/rgb/depth_npy_files/'
   depthpro_estimated_depth_npy_folder: '/home/hazel/depth2loc/estimated_depth/raw'
-  fixed_params_file: 'data/HAR4/scaling_factors.npz'
+  fixed_sf_to_metric_depth_file: 'data/HAR4/scaling_factors.npz'
   gt_pred_diff_video: 'data/HAR4/gt_pred_diff_video.avi'
   pred_depth_rgb_view_folder: 'vis_data/HAR4/pred_depth_rgb_view/'
 
