@@ -2,14 +2,9 @@ import cv2
 import numpy as np
 import os
 import tqdm
+import hydra
+from omegaconf import DictConfig
 
-
-
-def click_event(event, x, y, flags, param):
-    global clicked_points
-    if event == cv2.EVENT_LBUTTONDOWN:
-        clicked_points.append((x, y))
-        print(f"Clicked point: ({x}, {y})")
 
 
 
@@ -40,10 +35,7 @@ def extract_rgb_frames_smart_termination_if_not_done_before(avi_path:str, output
 
     subprocess.run(cmd, check=True) 
 
-def color_intrisic_calibration(image_folder:str, output_folder:str, corner_npy_path:str, pick_up_idx:list,  corners_finding:bool):
-    if not corners_finding:
-        print(f"{'Corners finding is disabled.'.ljust(40)} Skipping corner detection.")
-        return
+def color_intrisic_calibration(image_folder:str, output_folder:str, corner_npy_path:str, pick_up_idx:list,color_intrinsics_file:str):
     if not os.path.exists(corner_npy_path):
         os.makedirs(corner_npy_path)
     if not os.path.exists(output_folder):
@@ -293,12 +285,19 @@ def cam2depth_calibration(
     np.savez(d2c_file, rotation=rot, translation=trans)
 
 
-if __name__ == "__main__":
-    only_extract = True
-
-    color_intrisic_calibration(image_folder, output_folder, corner_npy_path, pick_up_idx,corners_finding)
-    cam2depth_calibration(c2d_folder, 
-    camspace_folder, 
+@hydra.main(config_path="/home/hhan2/Scripts/hof/", config_name="config",version_base=None)
+def main(cfg: DictConfig):
+    color_intrisic_calibration(
+        cfg.model.rgb_F,
+        cfg.dataset.paths.corners_vis_folder,
+        cfg.dataset.paths.corners_vis_folder,
+        cfg.pick_up_idx,
+        cfg.corners_finding,
+        cfg.color_intrinsics_file,
+    )
+    cam2depth_calibration(
+        cfg.c2d_folder,
+        cfg.camspace_folder,
     corner_npy_path, 
     visualized_depth_folder, 
     visualized_depth_w_corners_folder,
@@ -306,3 +305,9 @@ if __name__ == "__main__":
     depth2cam_extrinsics_file,
     image_folder,
     cam2depth_calibrating)
+
+
+
+if __name__ == "__main__":
+    main()
+    only_extract = True

@@ -48,6 +48,9 @@ def visualize_depth(depth_data, visualize_folder, idx, factor = 0.03, to_meter_s
         depth_data = depth_data * to_meter_sf
     os.makedirs(visualize_folder, exist_ok=True)
     depth_data = depth_data.astype(np.float32) # convertScaleAbs not support float16 
+    exception_mask = depth_data == 0
     depth_data = cv2.applyColorMap(cv2.convertScaleAbs(depth_data, alpha=factor), cv2.COLORMAP_JET)
+    depth_data[exception_mask] = 255
+
     cv2.imwrite(os.path.join(visualize_folder, f'frame_{idx:05d}.png'), depth_data)
     # print(f"Saved depth visualization to {os.path.join(visualize_folder, f'frame_{idx:05d}.png')}")

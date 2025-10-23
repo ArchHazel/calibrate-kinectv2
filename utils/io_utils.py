@@ -1,5 +1,6 @@
 import numpy as np
 import os
+import cv2
 
 def applied_sf_to_estimated_depth(estimated_depth:np.ndarray, scaling_factors:dict, resolution = (1920,10080)) -> np.ndarray:
     '''
@@ -18,6 +19,11 @@ def applied_sf_to_estimated_depth(estimated_depth:np.ndarray, scaling_factors:di
     rescale_depth = rescale_depth.astype(np.int16)
     return rescale_depth
 
+def read_rgb_img(idx, rgb_folder):
+    file_name = os.path.join(rgb_folder, f"frame_{idx:05d}.png")
+    if not os.path.exists(file_name):
+        raise FileNotFoundError(f"RGB file {file_name} does not exist.")
+    return cv2.imread(file_name, cv2.IMREAD_UNCHANGED)
 
 def read_color_intrinsics(file_path):
     if not os.path.exists(file_path):

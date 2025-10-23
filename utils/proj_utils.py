@@ -20,20 +20,41 @@ def depth_project_3d_to_2d(cam_space, depth_intrinsics, dimension):
                 estimated_depth[dimension["height"]-1-y, x] = cam_space[i, 2] * 1000
     return estimated_depth
 
+def create_camspace_from_depth(depth_data:np.ndarray, depth_intrinsics:np.ndarray, sf_to_m:float = 0.001)-> np.ndarray:
+    # create point cloud from estimated depth by using the inverse of the intrinsic matrix of "depth" camera.
+    cam_space = np.zeros((depth_data.shape[0], depth_data.shape[1], 3), dtype=np.float32) # (1080, 1920, 3)
+    cam_space[:, :, 0] = (np.arange(depth_data.shape[1]))
+    cam_space[:, :, 1] = (np.arange(depth_data.shape[0]-1, -1, -1))[:, np.newaxis]
+    cam_space[:, :, 2] = np.ones(depth_data.shape, dtype=np.float32)
+    cam_space = cam_space.reshape((-1, 3))
+    cam_space = np.dot(np.linalg.inv(depth_intrinsics), cam_space.T).T
+    cam_space *= (depth_data.flatten())[:,np.newaxis] * sf_to_m  # Convert mm to meters
+    cam_space = cam_space.reshape((-1, 3))
+
+    return cam_space
+
+def transform_cam_space_inversely(cam_space:np.ndarray, extrinsics:np.ndarray) -> np.ndarray:
+    r = np.linalg.inv(extrinsics['rotation'])
+    t = -np.dot(r, extrinsics['translation'])
+    cam_space = np.dot(r, cam_space.T).T + t.reshape((1, 3))
+    return cam_space
+
+def trasnform_cam_space(cam_space:np.ndarray, extrinsics:np.ndarray) -> np.ndarray:
+    r = extrinsics['rotation']
+    t = extrinsics['translation']
+    cam_space = np.dot(r, cam_space.T).T + t.reshape((1, 3))
+    return cam_space
+
 
 def create_point_cloud_from_rgbd_pair(rescale_depth:np.ndarray, color_intrinsics:np.ndarray, depth2rgb_extrinsics:np.ndarray, )-> np.ndarray:
-    # create point cloud from estimated depth by using the inverse of the intrinsic matrix of "color" camera.
-    cam_space = np.zeros((rescale_depth.shape[0], rescale_depth.shape[1], 3), dtype=np.float32) # (1080, 1920, 3)
-    cam_space[:, :, 0] = (np.arange(rescale_depth.shape[1]))
-    cam_space[:, :, 1] = (np.arange(rescale_depth.shape[0]-1, -1, -1))[:, np.newaxis]
-    cam_space[:, :, 2] = np.ones(rescale_depth.shape, dtype=np.float32)
-    cam_space = cam_space.reshape((-1, 3))
-    cam_space = np.dot(np.linalg.inv(color_intrinsics), cam_space.T).T
-    cam_space *= (rescale_depth.flatten())[:,np.newaxis] * 0.001  # Convert mm to meters
-    cam_space = cam_space.reshape((-1, 3))
+    cam_space = create_camspace_from_depth(rescale_depth, color_intrinsics, sf_to_m=0.001)
+    cam_space = transform_cam_space_inversely(cam_space, depth2rgb_extrinsics)
+    return cam_space
 
-    # change view from color camera to depth camera by using the depth2rgb extrinsics.
-    r = np.linalg.inv(depth2rgb_extrinsics['rotation'])
-    t = -np.dot(r, depth2rgb_extrinsics['translation'])
-    cam_space = np.dot(r, cam_space.T).T + t.reshape((1, 3))
+
+
+def project_depth_img_to_color_coordinate(depth_data, depth_intrinsics, depth2rgb_extrinsics):
+    # print(" max and min of depth data:", depth_data.max(), depth_data.min())
+    cam_space = create_camspace_from_depth(depth_data, depth_intrinsics, sf_to_m=0.001)
+    cam_space = trasnform_cam_space(cam_space, depth2rgb_extrinsics)
     return cam_space

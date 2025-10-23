@@ -73,9 +73,17 @@ def main(cfg: DictConfig):
     depth_intrinsics = np.loadtxt(cfg.dataset.paths.depth_intrinsics_file, delimiter=',').reshape((3, 3))
     estimated_depth_npy_folder = cfg.dataset.paths.depthpro_estimated_depth_npy_folder
 
-    gt_depth_data = read_gt_depth_given_frame_idx( 0,cfg.dataset.paths.depth_r_F_each_npy_containing_1440_frames, cfg.dataset.depth_interval)
     
-    # process each frame index
+
+    
+    # visualize the transformed estimated depth
+    if True:
+        visualize_transformed_depth(estimated_depth_npy_folder, cfg, color_intrinsics, depth2cam_extrinsics, depth_intrinsics)
+    else:
+        visualize_transformed_estimated_depth(estimated_depth_npy_folder, cfg, scaling_factors, color_intrinsics, depth2cam_extrinsics, depth_intrinsics)
+
+def visualize_transformed_estimated_depth(estimated_depth_npy_folder, cfg, scaling_factors, color_intrinsics, depth2cam_extrinsics, depth_intrinsics):
+    gt_depth_data = read_gt_depth_given_frame_idx(0, cfg.dataset.paths.depth_r_F_each_npy_containing_1440_frames, cfg.dataset.depth_interval)
     for idx in tqdm(from_depth_folder_to_frame_indices(estimated_depth_npy_folder)):
 
         estimated_depth = read_estimated_depth(idx, estimated_depth_npy_folder)
@@ -87,8 +95,20 @@ def main(cfg: DictConfig):
             depth_intrinsics, 
             {"height": gt_depth_data.shape[0], "width": gt_depth_data.shape[1]})
 
-
         visualize_depth(estimated_depth, cfg.dataset.paths.derived_depth_png_folder, idx)
+
+def visualize_transformed_depth(estimated_depth_npy_folder, cfg, color_intrinsics, depth2cam_extrinsics, depth_intrinsics):
+    color_img = read_rgb_img(0, cfg.model.paths.rgb_F)
+    for idx in tqdm(from_depth_folder_to_frame_indices(estimated_depth_npy_folder)):
+        gt_depth_data = read_gt_depth_given_frame_idx(idx, cfg.dataset.paths.depth_r_F_each_npy_containing_1440_frames, cfg.dataset.depth_interval)
+        cam_space = project_depth_img_to_color_coordinate(gt_depth_data, depth_intrinsics, depth2cam_extrinsics)
+
+        estimated_depth = depth_project_3d_to_2d(
+            cam_space, 
+            color_intrinsics, 
+            {"height": color_img.shape[0], "width": color_img.shape[1]})
+        np.save(cfg.dataset.paths.transformed_depth_frames_folder_npy + f"/frame_{idx:05d}.npy", estimated_depth)
+        visualize_depth(estimated_depth, cfg.dataset.paths.transformed_depth_frames_folder, idx)
     
 
 @hydra.main(config_path="/home/hhan2/Scripts/hof/", config_name="config",version_base=None)
