@@ -1,3 +1,4 @@
+# conda activate gDrive
 from pydrive2.auth import GoogleAuth
 from pydrive2.drive import GoogleDrive
 
@@ -5,6 +6,10 @@ gauth = GoogleAuth()
 gauth.LocalWebserverAuth()
 drive = GoogleDrive(gauth)
 
-file = drive.CreateFile({'title': 'bin_files.zip'})
-file.SetContentFile('bin_files.zip')
+name_on_cloud = 'segmentations.zip'
+path_on_local = '/home/Huijun/segmentation.zip'
+
+
+file = drive.CreateFile({'title': name_on_cloud})
+file.SetContentFile(path_on_local)
 file.Upload()  
